@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dekk-Keyp · Skiftekalender</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --asphalt:#22282d;
+  --concrete:#e9ebec;
+  --panel:#fff;
+  --line:#d3d8db;
+  --line-soft:#e6e9ea;
+  --muted:#69737a;
+  --signal:#1f6fb2;
+  --signal-dim:#e7f0f7;
+  --vinter:#1f6fb2;
+  --summar:#c07d0c;
+  --heilar:#5b666e;
+  --ok:#2c6e4e;
+  --stop:#a8281f;
+  --mark:#f0c33c;
+  --sans:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --cond:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--sans);
+  background:var(--concrete);
+  color:var(--asphalt);
+  font-size:15px;
+  line-height:1.45;
+  padding-bottom:56px;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+
+/* ---------- top bar ---------- */
+.topbar{
+  background:var(--asphalt);color:#fff;
+  padding:12px 20px;
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  border-bottom:3px solid var(--mark);
+}
+.brand{font-family:var(--cond);font-size:26px;font-weight:700;letter-spacing:.01em;line-height:1}
+.brand span{display:block;font-family:var(--sans);font-size:13px;font-weight:400;opacity:.62;letter-spacing:.02em}
+.topbar .spacer{flex:1}
+.seg{display:flex;border:1px solid rgba(255,255,255,.28);border-radius:5px;overflow:hidden}
+.seg button{background:none;border:0;color:rgba(255,255,255,.7);padding:5px 11px;cursor:pointer;font-size:13px;font-weight:500}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--asphalt)}
+.tabs{display:flex;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.tabs button{background:#fff;border:0;color:var(--muted);padding:6px 14px;cursor:pointer;font-weight:500}
+.tabs button+button{border-left:1px solid var(--line)}
+.tabs button:hover{background:#f2f4f5}
+.tabs button[aria-pressed="true"]{background:var(--asphalt);color:#fff}
+
+/* ---------- buttons ---------- */
+.btn{
+  border:1px solid var(--line);background:var(--panel);color:var(--asphalt);
+  border-radius:5px;padding:7px 13px;cursor:pointer;font-weight:500;white-space:nowrap;
+}
+.btn:hover{background:#f4f6f6}
+.btn-primary{background:var(--signal);border-color:var(--signal);color:#fff}
+.btn-primary:hover{background:#1a5f99}
+.btn-danger{color:var(--stop);border-color:#e3bfbc;background:#fff}
+.btn-danger:hover{background:#fbf1f0}
+.btn-sm{padding:4px 9px;font-size:13px}
+.btn-ghost{background:none;border-color:transparent}
+.btn-ghost:hover{background:#dde1e3}
+
+/* ---------- filter strip ---------- */
+.controls{
+  background:var(--panel);border-bottom:1px solid var(--line);
+  padding:12px 20px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;
+}
+.field{display:flex;flex-direction:column;gap:3px}
+.field label{font-size:12px;color:var(--muted);font-weight:500}
+.field input,.field select{
+  border:1px solid var(--line);border-radius:5px;padding:6px 9px;background:#fff;min-width:0;
+}
+.field input:focus,.field select:focus{border-color:var(--signal)}
+#q{min-width:230px}
+
+/* ---------- summary strip ---------- */
+.summary{
+  display:flex;gap:26px;flex-wrap:wrap;
+  padding:10px 20px;background:#dfe3e5;border-bottom:1px solid var(--line);
+}
+.stat{display:flex;align-items:baseline;gap:7px}
+.stat b{font-family:var(--cond);font-size:23px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1}
+.stat span{font-size:13px;color:var(--muted)}
+
+/* ---------- layout ---------- */
+main{padding:20px;max-width:1500px;margin:0 auto}
+.calwrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.hidden{display:none !important}
+
+/* ---------- calendar ---------- */
+.calhead{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.monthname{font-family:var(--cond);font-size:30px;font-weight:600;line-height:1;min-width:210px}
+.calhead .cap{margin-left:auto;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted)}
+
+.weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:5px}
+.weekdays div{font-size:12px;font-weight:600;color:var(--muted);padding-left:6px}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.day{
+  background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;
+  min-height:112px;padding:5px 5px 0;display:flex;flex-direction:column;cursor:pointer;position:relative;
+}
+.day:hover{border-color:var(--line)}
+.day.out{background:#eff1f2;color:#a6aeb3}
+.day.today .dnum{color:var(--asphalt);background:var(--mark);border-radius:3px;padding:0 5px}
+.day.sel{border-color:var(--signal);box-shadow:inset 0 0 0 1px var(--signal)}
+.dtop{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:3px}
+.dnum{font-family:var(--cond);font-size:19px;font-weight:600;line-height:1.15}
+.dcount{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-direction:column;gap:2px;flex:1;overflow:hidden}
+.chip{
+  font-size:11.5px;line-height:1.3;padding:2px 5px;border-radius:3px;
+  border-left:3px solid var(--heilar);background:#f1f3f4;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.chip.vinter{border-left-color:var(--vinter);background:#eaf2f8}
+.chip.summar{border-left-color:var(--summar);background:#fbf3e3}
+.chip.avlyst{opacity:.5;text-decoration:line-through}
+.chip b{font-weight:600;font-variant-numeric:tabular-nums}
+.capbar{height:3px;background:#e4e7e9;border-radius:2px;margin:4px -5px 0;border-radius:0 0 5px 5px;overflow:hidden}
+.capbar i{display:block;height:100%;background:var(--asphalt)}
+.capbar i.full{background:var(--mark)}
+.capbar i.over{background:var(--stop)}
+
+/* ---------- day panel ---------- */
+.daypanel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;position:sticky;top:14px}
+.daypanel h2{font-family:var(--cond);font-size:22px;font-weight:600;line-height:1.1}
+.daypanel .sub{font-size:13px;color:var(--muted);margin-bottom:12px;display:flex;gap:14px;flex-wrap:wrap}
+.tl-free{
+  display:flex;align-items:center;gap:10px;font-size:12.5px;color:#98a1a7;
+  padding:3px 6px;margin:2px 0;border:1px dashed var(--line);border-radius:4px;cursor:pointer;background:#fbfcfc;
+}
+.tl-free:hover{border-color:var(--signal);color:var(--signal);background:var(--signal-dim)}
+.tl-free b{font-family:var(--cond);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:inherit}
+.tl-free span{margin-left:auto}
+.tl-out{font-size:12px;color:var(--muted);margin:10px 0 2px}
+.bk{border-top:1px solid var(--line-soft);padding:10px 0}
+.bk:last-of-type{border-bottom:1px solid var(--line-soft)}
+.bk-top{display:flex;gap:8px;align-items:baseline}
+.bk-time{font-family:var(--cond);font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;min-width:44px}
+.bk-name{font-weight:600;flex:1}
+.plate{
+  display:inline-block;font-family:var(--cond);font-weight:700;font-size:14px;letter-spacing:.06em;
+  border:1.5px solid var(--asphalt);border-radius:3px;padding:0 5px;background:#fff;
+}
+.bk-desc{font-size:13.5px;margin:3px 0 4px}
+.bk-money{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.bk-money b{color:var(--asphalt);font-weight:600}
+.bk-foot{display:flex;gap:6px;align-items:center;margin-top:6px}
+.tag{font-size:11.5px;padding:1px 7px;border-radius:10px;background:#eceff0;color:var(--muted)}
+.tag.done{background:#e4f0ea;color:var(--ok)}
+.tag.stop{background:#f8e7e5;color:var(--stop)}
+.tag.wait{background:#fbf3e3;color:#8a5c05}
+.panel-actions{display:flex;gap:8px;margin-top:12px}
+.empty{color:var(--muted);font-size:14px;padding:14px 0;text-align:center}
+
+/* ---------- table ---------- */
+.tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:auto;max-height:70vh}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line-soft);white-space:nowrap}
+thead th{
+  position:sticky;top:0;background:#f2f4f5;font-weight:600;font-size:12.5px;
+  border-bottom:1px solid var(--line);cursor:pointer;user-select:none;z-index:2;
+}
+thead th:hover{background:#e9ecee}
+th.num,td.num{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr:hover{background:#f6f8f8}
+tfoot td{position:sticky;bottom:0;background:#f2f4f5;font-weight:600;border-top:1px solid var(--line)}
+.sortmark{color:var(--signal);font-size:11px}
+
+/* ---------- dialog ---------- */
+dialog{
+  border:0;border-radius:8px;padding:0;margin:auto;width:min(660px,94vw);
+  max-height:92vh;box-shadow:0 18px 50px rgba(20,26,30,.28);
+}
+dialog::backdrop{background:rgba(24,30,34,.5)}
+.dlg-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center}
+.dlg-head h3{font-family:var(--cond);font-size:22px;font-weight:600}
+.dlg-body{padding:16px 18px;display:grid;gap:12px;max-height:70vh;overflow:auto}
+.row{display:grid;gap:12px}
+.r2{grid-template-columns:1fr 1fr}
+.r3{grid-template-columns:1fr 1fr 1fr}
+.r4{grid-template-columns:1fr 1fr 1fr 1fr}
+.dlg-body label{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-bottom:3px}
+.dlg-body input,.dlg-body select,.dlg-body textarea{
+  width:100%;border:1px solid var(--line);border-radius:5px;padding:7px 9px;background:#fff;
+}
+.dlg-body input:focus,.dlg-body select:focus,.dlg-body textarea:focus{border-color:var(--signal)}
+.dlg-body textarea{resize:vertical;min-height:52px}
+.calcbox{
+  background:#f2f4f5;border:1px solid var(--line-soft);border-radius:6px;padding:10px 12px;
+  display:flex;gap:22px;flex-wrap:wrap;font-size:13px;color:var(--muted);
+}
+.calcbox b{display:block;font-family:var(--cond);font-size:19px;font-weight:600;color:var(--asphalt);font-variant-numeric:tabular-nums;line-height:1.2}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:5px}
+.slot{
+  border:1px solid var(--line);background:#fff;border-radius:4px;padding:6px 4px;cursor:pointer;
+  font-variant-numeric:tabular-nums;font-size:13.5px;line-height:1.2;
+}
+.slot:hover{border-color:var(--signal);background:var(--signal-dim)}
+.slot i{display:block;font-style:normal;font-size:11px;color:var(--muted)}
+.slot.taken{background:#f1f3f4;color:#9aa3a8;border-style:dashed}
+.slot.taken i{color:#b0231b}
+.slot.sel{background:var(--signal);border-color:var(--signal);color:#fff}
+.slot.sel i{color:rgba(255,255,255,.8)}
+.warn{
+  background:#fdf3e6;border:1px solid #edd2a6;color:#8a5c05;
+  border-radius:5px;padding:8px 10px;font-size:13px;
+}
+.hint{font-size:13px;color:var(--muted)}
+#durHint{display:block;font-size:12px;margin-top:3px}
+.dlg-foot{padding:13px 18px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;background:#f8f9f9}
+.dlg-foot .spacer{flex:1}
+.err{color:var(--stop);font-size:13px}
+.check{display:flex;align-items:center;gap:7px;font-size:14px;padding-top:19px}
+.check input{width:auto}
+
+/* ---------- toast ---------- */
+#toast{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+  background:var(--asphalt);color:#fff;padding:9px 16px;border-radius:5px;font-size:14px;
+  opacity:0;pointer-events:none;transition:opacity .18s;z-index:60;max-width:90vw;
+}
+#toast.show{opacity:1}
+
+/* ---------- responsive ---------- */
+@media (max-width:1020px){
+  .calwrap{grid-template-columns:1fr}
+  .daypanel{position:static}
+}
+@media (max-width:700px){
+  main{padding:12px}
+  .day{min-height:74px;padding:4px 4px 0}
+  .chips{display:none}
+  .slots{grid-template-columns:repeat(auto-fill,minmax(70px,1fr))}
+  .dtop{flex-direction:column;align-items:flex-start;gap:0}
+  .dcount{font-size:12.5px;font-weight:600;color:var(--asphalt);line-height:1.1}
+  .unit{display:none}
+  .row.r2,.row.r3,.row.r4{grid-template-columns:1fr}
+  #q{min-width:150px}
+  .summary{gap:16px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+
+/* ---------- print: day sheet for the workshop ---------- */
+@media print{
+  body{background:#fff;padding:0}
+  .topbar,.controls,.summary,.calhead,.weekdays,.days,.panel-actions,#viewList,dialog,#toast,.tl-free{display:none !important}
+  .calwrap{display:block}
+  .daypanel{border:0;padding:0}
+  .bk{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">Dekk-Keyp<span data-t="tagline">Skiftekalender</span></div>
+  <div class="spacer"></div>
+  <div class="seg" role="group" aria-label="Sprog">
+    <button type="button" data-lang="da" aria-pressed="true">DA</button>
+    <button type="button" data-lang="fo" aria-pressed="false">FØ</button>
+  </div>
+  <button type="button" class="btn btn-primary" id="btnNew" data-t="newBooking">Ny booking</button>
+</header>
+
+<div class="controls">
+  <div class="field">
+    <label for="q" data-t="fSearch">Søg kunde, nr. plade eller dæk</label>
+    <input id="q" type="search" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="fStatus" data-t="fStatus">Status</label>
+    <select id="fStatus"></select>
+  </div>
+  <div class="field">
+    <label for="fSeason" data-t="fSeason">Sæson</label>
+    <select id="fSeason"></select>
+  </div>
+  <div class="field">
+    <label for="fFrom" data-t="fFrom">Fra dato</label>
+    <input id="fFrom" type="date">
+  </div>
+  <div class="field">
+    <label for="fTo" data-t="fTo">Til dato</label>
+    <input id="fTo" type="date">
+  </div>
+  <button type="button" class="btn" id="btnClear" data-t="clear">Nulstil</button>
+  <div class="spacer" style="flex:1"></div>
+  <div class="tabs" role="group" aria-label="Visning">
+    <button type="button" id="tabCal" aria-pressed="true" data-t="tabCal">Kalender</button>
+    <button type="button" id="tabList" aria-pressed="false" data-t="tabList">Liste</button>
+  </div>
+  <button type="button" class="btn" id="btnExcel" data-t="excel">Hent Excel</button>
+  <button type="button" class="btn btn-ghost btn-sm" id="btnBackup" data-t="backup">Backup</button>
+  <button type="button" class="btn btn-ghost btn-sm" id="btnRestore" data-t="restore">Indlæs</button>
+  <input type="file" id="fileRestore" accept=".json" class="hidden">
+</div>
+
+<div class="summary" id="summary"></div>
+
+<main>
+  <section id="viewCal" class="calwrap">
+    <div>
+      <div class="calhead">
+        <button type="button" class="btn btn-sm" id="prevM" aria-label="Forrige måned">&#8249;</button>
+        <button type="button" class="btn btn-sm" id="nextM" aria-label="Næste måned">&#8250;</button>
+        <div class="monthname" id="monthName"></div>
+        <button type="button" class="btn btn-sm" id="btnToday" data-t="today">I dag</button>
+        <div class="cap">
+          <span id="hoursInfo"></span>
+          <button type="button" class="btn btn-sm" id="btnSettings" data-t="settings">Indstillinger</button>
+        </div>
+      </div>
+      <div class="weekdays" id="weekdays"></div>
+      <div class="days" id="days"></div>
+    </div>
+    <aside class="daypanel" id="daypanel"></aside>
+  </section>
+
+  <section id="viewList" class="hidden">
+    <div class="tablewrap">
+      <table id="tbl">
+        <thead><tr id="thRow"></tr></thead>
+        <tbody id="tbody"></tbody>
+        <tfoot id="tfoot"></tfoot>
+      </table>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlg">
+  <div class="dlg-head"><h3 id="dlgTitle"></h3></div>
+  <div class="dlg-body">
+    <div class="row r3">
+      <div><label for="fDato" data-t="lDate">Dato</label><input id="fDato" type="date"></div>
+      <div><label for="fTid" data-t="lTime">Tid</label><input id="fTid" type="time" step="300"></div>
+      <div><label for="fVarighed" data-t="lDur">Varighed</label>
+        <input id="fVarighed" type="number" min="5" step="5">
+        <span class="hint" id="durHint"></span></div>
+    </div>
+    <div>
+      <label data-t="pickTime">Vælg tid</label>
+      <div class="slots" id="slotPick"></div>
+    </div>
+    <div class="warn hidden" id="slotWarn"></div>
+    <div class="row r2">
+      <div><label for="fSaeson" data-t="lSeason">Sæson</label><select id="fSaeson"></select></div>
+      <div><label for="fStatusIn" data-t="lStatus">Status</label><select id="fStatusIn"></select></div>
+    </div>
+    <div class="row r3">
+      <div><label for="fKunde" data-t="lCustomer">Kunde</label><input id="fKunde" type="text" autocomplete="off"></div>
+      <div><label for="fTlf" data-t="lPhone">Telefon</label><input id="fTlf" type="text" autocomplete="off"></div>
+      <div><label for="fPlade" data-t="lPlate">Nr. plade</label><input id="fPlade" type="text" autocomplete="off" style="text-transform:uppercase"></div>
+    </div>
+    <div><label for="fDekk" data-t="lTyre">Dæk</label><input id="fDekk" type="text" autocomplete="off" placeholder="Bridgestone Blizzak LM005 205/55R16 91H"></div>
+    <div class="row r3">
+      <div><label for="fStodd" data-t="lSize">Størrelse</label><input id="fStodd" type="text" autocomplete="off" placeholder="205/55R16"></div>
+      <div><label for="fMerki" data-t="lBrand">Mærke</label><input id="fMerki" type="text" autocomplete="off"></div>
+      <div><label for="fAntal" data-t="lQty">Antal dæk</label><input id="fAntal" type="number" min="1" step="1" value="4"></div>
+    </div>
+    <div class="row r2">
+      <div><label for="fSalg" data-t="lSell">Salgspris pr. stk. inkl. MVG</label><input id="fSalg" type="number" min="0" step="0.01"></div>
+      <div><label for="fKost" data-t="lCost">Kostpris pr. stk. (alt inkl.)</label><input id="fKost" type="number" min="0" step="0.01"></div>
+    </div>
+    <div class="calcbox" id="calcbox"></div>
+    <div class="row r2">
+      <div><label for="fNotat" data-t="lNote">Note</label><textarea id="fNotat"></textarea></div>
+      <label class="check"><input type="checkbox" id="fGoymsla"> <span data-t="lStored">Dæk ligger på lager hos os</span></label>
+    </div>
+    <div class="err hidden" id="dlgErr"></div>
+  </div>
+  <div class="dlg-foot">
+    <button type="button" class="btn btn-danger hidden" id="btnDel" data-t="delete">Slet</button>
+    <div class="spacer"></div>
+    <button type="button" class="btn" id="btnCancel" data-t="cancel">Annuller</button>
+    <button type="button" class="btn btn-primary" id="btnSave" data-t="save">Gem</button>
+  </div>
+</dialog>
+
+<dialog id="dlgSet">
+  <div class="dlg-head"><h3 data-t="settings">Indstillinger</h3></div>
+  <div class="dlg-body">
+    <div class="row r3">
+      <div><label for="sOpen" data-t="openT">Åbner</label><input id="sOpen" type="time" step="900"></div>
+      <div><label for="sClose" data-t="closeT">Lukker</label><input id="sClose" type="time" step="900"></div>
+      <div><label for="sMinTyre" data-t="minPerTyre">Min. pr. dæk</label><input id="sMinTyre" type="number" min="1" max="120" step="1"></div>
+    </div>
+    <div class="row r2">
+      <div><label for="sSlot" data-t="slotLen">Starttider hver</label>
+        <select id="sSlot">
+          <option value="15">15 min</option><option value="20">20 min</option>
+          <option value="30">30 min</option><option value="45">45 min</option>
+          <option value="60">60 min</option>
+        </select></div>
+      <div><label for="sBays" data-t="bays">Pladser samtidig</label><input id="sBays" type="number" min="1" max="8" step="1"></div>
+    </div>
+    <p class="hint" id="setHint"></p>
+  </div>
+  <div class="dlg-foot">
+    <div class="spacer"></div>
+    <button type="button" class="btn" id="setCancel" data-t="cancel">Annuller</button>
+    <button type="button" class="btn btn-primary" id="setSave" data-t="save">Gem</button>
+  </div>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+"use strict";
+
+/* ============================================================
+   1. Sprog
+   ============================================================ */
+var T = {
+  da:{
+    tagline:"Skiftekalender", newBooking:"Ny booking",
+    fSearch:"Søg kunde, nr. plade eller dæk", fStatus:"Status", fSeason:"Sæson",
+    fFrom:"Fra dato", fTo:"Til dato", clear:"Nulstil",
+    tabCal:"Kalender", tabList:"Liste", excel:"Hent Excel", backup:"Backup", restore:"Indlæs",
+    today:"I dag", capacity:"Dæk pr. dag",
+    settings:"Indstillinger", openT:"Åbner", closeT:"Lukker", slotLen:"Starttider hver",
+    minPerTyre:"Min. pr. dæk", durExample:"4 dæk = {m}.",
+    bays:"Pladser samtidig", lDur:"Varighed", pickTime:"Vælg tid", free:"Ledig",
+    conflictWarn:"Optaget: {n} af {b} pladser er allerede booket på det tidspunkt.",
+    slotsInfo:"{s} tidsrum pr. dag, {h} kapacitet.", outside:"Uden for åbningstid",
+    lDate:"Dato", lTime:"Tid", lSeason:"Sæson", lCustomer:"Kunde", lPhone:"Telefon",
+    lPlate:"Nr. plade", lTyre:"Dæk", lSize:"Størrelse", lBrand:"Mærke", lQty:"Antal dæk",
+    lSell:"Salgspris pr. stk. inkl. MVG", lCost:"Kostpris pr. stk. (alt inkl.)", lStatus:"Status",
+    lNote:"Note", lStored:"Dæk ligger på lager hos os",
+    save:"Gem", cancel:"Annuller", delete:"Slet", edit:"Ret", tagStored:"På lager",
+    newTitle:"Ny booking", editTitle:"Ret booking",
+    all:"Alle",
+    seasons:["Vinter","Sommer","Helår"],
+    statuses:["Bestilt","Bekræftet","Dæk ankommet","Skiftet","Faktureret","Aflyst"],
+    months:["januar","februar","marts","april","maj","juni","juli","august","september","oktober","november","december"],
+    wdShort:["man","tir","ons","tor","fre","lør","søn"],
+    wdLong:["mandag","tirsdag","onsdag","torsdag","fredag","lørdag","søndag"],
+    sBookings:"bookinger", sTyres:"dæk", sSales:"salg inkl. MVG", sMargin:"avance",
+    print:"Print dagsseddel", addHere:"Ny booking denne dag",
+    noBookings:"Ingen bookinger denne dag.", pickDay:"Vælg en dag i kalenderen.",
+    noRows:"Ingen bookinger matcher filtrene.",
+    exVat:"u/MVG pr. stk.", totSale:"Salg i alt", totCost:"Kost i alt", marginTot:"Avance", marginPct:"Avance %",
+    needCustomer:"Skriv kundens navn.", needDate:"Vælg en dato.",
+    saved:"Booking gemt.", deleted:"Booking slettet.", confirmDel:"Slet denne booking?",
+    xlsxOk:"Excel-fil hentet.", csvOk:"Excel-modulet kunne ikke hentes — CSV downloadet i stedet (semikolon).",
+    backupOk:"Backup hentet.", restoreOk:"Data indlæst.", restoreErr:"Filen kunne ikke læses.",
+    emptyTitle:"Ingen bookinger endnu.", emptyBody:"Klik en dag i kalenderen for at booke det første dækskifte.",
+    demo:"Indsæt eksempeldata", demoOk:"Eksempeldata indsat.",
+    of:"af", tyresDay:"dæk",
+    cols:["Dato","Tid","Slut","Varighed (min)","Kunde","Telefon","Nr. plade","Dæk","Størrelse","Mærke",
+          "Antal","Sæson","Pris u/MVG","Pris inkl. MVG","Kostpris","Salg i alt inkl. MVG","Kost i alt",
+          "Avance","Avance %","Status","På lager","Note"]
+  },
+  fo:{
+    tagline:"Skiftikalendari", newBooking:"Nýggj bílegging",
+    fSearch:"Leita kunda, skeltisnr. ella dekk", fStatus:"Støða", fSeason:"Árstíð",
+    fFrom:"Frá dato", fTo:"Til dato", clear:"Nullstilla",
+    tabCal:"Kalendari", tabList:"Listi", excel:"Heinta Excel", backup:"Trygdaravrit", restore:"Les inn",
+    today:"Í dag", capacity:"Dekk um dagin",
+    settings:"Innstillingar", openT:"Opnar", closeT:"Stongir", slotLen:"Byrjunartíðir hvørt",
+    minPerTyre:"Min. pr. dekk", durExample:"4 dekk = {m}.",
+    bays:"Pláss samstundis", lDur:"Longd", pickTime:"Vel tíð", free:"Leyst",
+    conflictWarn:"Upptikið: {n} av {b} plássum eru longu bílagd tá.",
+    slotsInfo:"{s} tíðarbil um dagin, {h} kapasitetur.", outside:"Uttan fyri opningartíð",
+    lDate:"Dagfesting", lTime:"Tíð", lSeason:"Árstíð", lCustomer:"Kundi", lPhone:"Telefon",
+    lPlate:"Skeltisnummar", lTyre:"Vørulýsing", lSize:"Stødd", lBrand:"Merki", lQty:"Nøgd",
+    lSell:"Prísur pr. stk. v/MVG", lCost:"Kostprísur pr. stk. (við øllum)", lStatus:"Støða",
+    lNote:"Viðmerking", lStored:"Dekkini eru á goymslu hjá okkum",
+    save:"Goym", cancel:"Avlýs", delete:"Strika", edit:"Broyt", tagStored:"Á goymslu",
+    newTitle:"Nýggj bílegging", editTitle:"Broyt bílegging",
+    all:"Øll",
+    seasons:["Vetur","Summar","Heilár"],
+    statuses:["Bílagt","Váttað","Dekk komin","Skift","Fakturerað","Avlýst"],
+    months:["januar","februar","mars","apríl","mai","juni","juli","august","september","oktober","november","desember"],
+    wdShort:["mán","týs","mik","hós","frí","ley","sun"],
+    wdLong:["mánadagur","týsdagur","mikudagur","hósdagur","fríggjadagur","leygardagur","sunnudagur"],
+    sBookings:"bíleggingar", sTyres:"dekk", sSales:"søla v/MVG", sMargin:"avansa",
+    print:"Prenta dagsseðil", addHere:"Nýggj bílegging henda dag",
+    noBookings:"Ongar bíleggingar henda dag.", pickDay:"Vel ein dag í kalendaranum.",
+    noRows:"Ongar bíleggingar samsvara filtrunum.",
+    exVat:"u/MVG pr. stk.", totSale:"Søla tilsamans", totCost:"Kostnaður tilsamans", marginTot:"Avansa", marginPct:"Avansa í %",
+    needCustomer:"Skriva navnið á kundanum.", needDate:"Vel eina dagfesting.",
+    saved:"Bíleggingin er goymd.", deleted:"Bíleggingin er strikað.", confirmDel:"Strika hesa bílegging?",
+    xlsxOk:"Excel-fíla heintað.", csvOk:"Excel-modulið kundi ikki heintast — CSV heintað í staðin (semikolon).",
+    backupOk:"Trygdaravrit heintað.", restoreOk:"Dáta lisin inn.", restoreErr:"Fílan kundi ikki lesast.",
+    emptyTitle:"Ongar bíleggingar enn.", emptyBody:"Trýst á ein dag í kalendaranum fyri at bíleggja fyrsta dekkskiftið.",
+    demo:"Legg inn dømisdáta", demoOk:"Dømisdáta lagt inn.",
+    of:"av", tyresDay:"dekk",
+    cols:["Dagfesting","Tíð","Endar","Longd (min)","Kundi","Telefon","Skeltisnummar","Vørulýsing","Stødd","Merki",
+          "Nøgd","Árstíð","Prísur u/mvg","Prísur v/mvg","Kostprísur við øllum","Søla tilsamans v/mvg","Kostnaður tilsamans",
+          "Avansa","Avansa í %","Støða","Goymsla","Viðmerking"]
+  }
+};
+var lang = "da";
+function t(k){ return T[lang][k]; }
+
+/* Støða og árstíð eru goymd sum kotur, so dáta broytist ikki við málinum */
+var SEASONS = ["W","S","A"];
+var STATUS  = ["ORD","CONF","ARR","DONE","INV","CAN"];
+function seasonLabel(k){ var i = SEASONS.indexOf(k); return i<0 ? "" : t("seasons")[i]; }
+function statusLabel(k){ var i = STATUS.indexOf(k); return i<0 ? "" : t("statuses")[i]; }
+function normSeason(v){
+  if(SEASONS.indexOf(v) > -1) return v;
+  var out = "";
+  ["da","fo"].forEach(function(L){ var i = T[L].seasons.indexOf(v); if(i > -1) out = SEASONS[i]; });
+  return out || "W";
+}
+function normStatus(v){
+  if(STATUS.indexOf(v) > -1) return v;
+  var out = "";
+  ["da","fo"].forEach(function(L){ var i = T[L].statuses.indexOf(v); if(i > -1) out = STATUS[i]; });
+  return out || "ORD";
+}
+function normalize(b){
+  b.saeson = normSeason(b.saeson);
+  b.status = normStatus(b.status);
+  if(!b.id) b.id = uid();
+  return b;
+}
+
+/* ============================================================
+   2. Goymsla / storage
+   ============================================================ */
+var Store = (function(){
+  var KEY = "dekkkeyp_kalendari_v1";
+  var useWin = (typeof window !== "undefined" && window.storage && typeof window.storage.get === "function");
+  var mem = null;
+  return {
+    load: function(){
+      return new Promise(function(resolve){
+        var done = function(v){ resolve(v); };
+        if(useWin){
+          window.storage.get(KEY).then(function(r){
+            try{ done(r && r.value ? JSON.parse(r.value) : local()); }catch(e){ done(local()); }
+          }).catch(function(){ done(local()); });
+          return;
+        }
+        done(local());
+      });
+      function local(){
+        try{ var raw = localStorage.getItem(KEY); return raw ? JSON.parse(raw) : mem; }
+        catch(e){ return mem; }
+      }
+    },
+    save: function(data){
+      mem = data;
+      var s = JSON.stringify(data);
+      if(useWin){
+        try{ window.storage.set(KEY, s).catch(function(){ localSave(s); }); return; }
+        catch(e){ /* fall through */ }
+      }
+      localSave(s);
+      function localSave(str){ try{ localStorage.setItem(KEY, str); }catch(e){} }
+    }
+  };
+})();
+
+/* ============================================================
+   3. Støða / state
+   ============================================================ */
+var state = {
+  bookings: [],
+  hours: { open:"08:00", close:"16:00", slot:30, bays:1, minPerTyre:15 },
+  lang: "da"
+};
+
+/* --- tíðarbil / time slots --- */
+function toMin(hhmm){
+  if(!hhmm || String(hhmm).indexOf(":") < 0) return null;
+  var p = String(hhmm).split(":");
+  var m = Number(p[0])*60 + Number(p[1]);
+  return isNaN(m) ? null : m;
+}
+function toHHMM(m){
+  m = ((m % 1440) + 1440) % 1440;
+  var h = Math.floor(m/60), mm = m % 60;
+  return (h<10?"0":"")+h+":"+(mm<10?"0":"")+mm;
+}
+function hmShort(mins){
+  mins = Math.round(mins||0);
+  var h = Math.floor(mins/60), m = mins % 60;
+  if(!h) return m+" min";
+  return m ? h+"t"+(m<10?"0":"")+m : h+"t";
+}
+/* Longdin fylgir tali av dekkum: 15 min um dekkið sum standard */
+function autoMins(qty){
+  return Math.max(5, (Number(qty)||0) * (state.hours.minPerTyre||15));
+}
+function durOf(b){ return Number(b.varighed) || autoMins(b.antal) || state.hours.slot; }
+function endTime(b){
+  var s = toMin(b.tid);
+  return s == null ? "" : toHHMM(s + durOf(b));
+}
+function slotList(){
+  var a = toMin(state.hours.open), z = toMin(state.hours.close), st = state.hours.slot, out = [];
+  if(a == null || z == null || !st) return out;
+  for(var m = a; m + st <= z; m += st) out.push(m);
+  return out;
+}
+/* Hægsti tal av bíleggingum, sum ganga samstundis í hesum tíðarbilinum */
+function busyIn(dateStr, from, len, excludeId){
+  var max = 0;
+  for(var x = from; x < from + len; x += 5){
+    var n = 0;
+    for(var i = 0; i < state.bookings.length; i++){
+      var b = state.bookings[i];
+      if(b.dato !== dateStr || b.status === "CAN") continue;
+      if(excludeId && b.id === excludeId) continue;
+      var st = toMin(b.tid); if(st == null) continue;
+      if(x >= st && x < st + durOf(b)) n++;
+    }
+    if(n > max) max = n;
+  }
+  return max;
+}
+function firstFreeSlot(dateStr){
+  var slots = slotList();
+  for(var i = 0; i < slots.length; i++){
+    if(busyIn(dateStr, slots[i], state.hours.slot, null) < state.hours.bays) return toHHMM(slots[i]);
+  }
+  return slots.length ? toHHMM(slots[0]) : state.hours.open;
+}
+function dayCapMin(){
+  var a = toMin(state.hours.open), z = toMin(state.hours.close);
+  return (a == null || z == null) ? 0 : Math.max(0, (z-a) * state.hours.bays);
+}
+function dayLoad(list){
+  var mins = 0;
+  list.forEach(function(b){ if(b.status !== "CAN") mins += durOf(b); });
+  var cap = dayCapMin();
+  return { mins:mins, cap:cap, pct: cap > 0 ? mins/cap : 0 };
+}
+var viewMonth = new Date();
+var selDate = ymd(new Date());
+var view = "cal";
+var sortKey = "dato", sortDir = 1;
+var editId = null;
+
+function ymd(d){
+  var m = String(d.getMonth()+1); if(m.length<2) m = "0"+m;
+  var day = String(d.getDate()); if(day.length<2) day = "0"+day;
+  return d.getFullYear()+"-"+m+"-"+day;
+}
+function parseYmd(s){
+  if(!s) return null;
+  var p = s.split("-");
+  return new Date(Number(p[0]), Number(p[1])-1, Number(p[2]));
+}
+function wdIndex(d){ return (d.getDay()+6)%7; }
+function uid(){ return "b"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+var nf2 = new Intl.NumberFormat("da-DK",{minimumFractionDigits:2,maximumFractionDigits:2});
+var nf0 = new Intl.NumberFormat("da-DK",{maximumFractionDigits:0});
+function kr(n){ return nf2.format(n||0); }
+function kr0(n){ return nf0.format(n||0); }
+function esc(s){
+  return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+  });
+}
+
+/* Roknistykkið: prísur v/MVG -> u/MVG, avansa mót kostprísi */
+function calc(b){
+  var qty = Number(b.antal)||0;
+  var sellIncl = Number(b.salg)||0;
+  var sellEx = sellIncl/1.25;
+  var cost = Number(b.kost)||0;
+  var totIncl = sellIncl*qty;
+  var totEx = sellEx*qty;
+  var totCost = cost*qty;
+  var db = totEx - totCost;
+  var pct = totEx>0 ? db/totEx : 0;
+  return { qty:qty, sellIncl:sellIncl, sellEx:sellEx, cost:cost,
+           totIncl:totIncl, totEx:totEx, totCost:totCost, db:db, pct:pct };
+}
+
+/* ============================================================
+   4. Filtrar
+   ============================================================ */
+function filtered(){
+  var q = document.getElementById("q").value.trim().toLowerCase();
+  var st = document.getElementById("fStatus").value;
+  var se = document.getElementById("fSeason").value;
+  var from = document.getElementById("fFrom").value;
+  var to = document.getElementById("fTo").value;
+  return state.bookings.filter(function(b){
+    if(st && b.status !== st) return false;
+    if(se && b.saeson !== se) return false;
+    if(from && b.dato < from) return false;
+    if(to && b.dato > to) return false;
+    if(q){
+      var hay = [b.kunde,b.plade,b.dekk,b.stodd,b.merki,b.tlf,b.notat,
+                 seasonLabel(b.saeson),statusLabel(b.status)].join(" ").toLowerCase();
+      if(hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+}
+function byDate(a,b){
+  if(a.dato !== b.dato) return a.dato < b.dato ? -1 : 1;
+  return (a.tid||"") < (b.tid||"") ? -1 : 1;
+}
+
+/* ============================================================
+   5. Rendering
+   ============================================================ */
+function render(){
+  renderSummary();
+  if(view === "cal"){ renderCalendar(); renderDayPanel(); }
+  else { renderTable(); }
+}
+
+function renderSummary(){
+  var rows = filtered().filter(function(b){ return b.status !== "CAN"; });
+  var tyres=0, sale=0, db=0;
+  rows.forEach(function(b){ var c=calc(b); tyres+=c.qty; sale+=c.totIncl; db+=c.db; });
+  var pct = sale>0 ? db/(sale/1.25) : 0;
+  document.getElementById("summary").innerHTML =
+    stat(kr0(rows.length), t("sBookings")) +
+    stat(kr0(tyres), t("sTyres")) +
+    stat(kr0(sale), t("sSales")) +
+    stat(kr0(db)+" ("+(pct*100).toFixed(1).replace(".",",")+"%)", t("sMargin"));
+}
+function stat(v,l){ return '<div class="stat"><b>'+esc(v)+'</b><span>'+esc(l)+'</span></div>'; }
+
+function renderCalendar(){
+  var wd = document.getElementById("weekdays");
+  wd.innerHTML = t("wdShort").map(function(d){ return "<div>"+d+"</div>"; }).join("");
+  document.getElementById("monthName").textContent =
+    t("months")[viewMonth.getMonth()] + " " + viewMonth.getFullYear();
+
+  var first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
+  var start = new Date(first); start.setDate(1 - wdIndex(first));
+  var last = new Date(viewMonth.getFullYear(), viewMonth.getMonth()+1, 0);
+  var cells = Math.ceil((wdIndex(first) + last.getDate())/7)*7;
+
+  var rows = filtered();
+  var byDay = {};
+  rows.forEach(function(b){ (byDay[b.dato] = byDay[b.dato] || []).push(b); });
+
+  var todayS = ymd(new Date());
+  var capMin = dayCapMin();
+  var html = "";
+  for(var i=0;i<cells;i++){
+    var d = new Date(start); d.setDate(start.getDate()+i);
+    var s = ymd(d);
+    var list = (byDay[s]||[]).slice().sort(byDate);
+    var cnt = 0;
+    list.forEach(function(b){ if(b.status !== "CAN") cnt += Number(b.antal)||0; });
+    var cls = "day";
+    if(d.getMonth() !== viewMonth.getMonth()) cls += " out";
+    if(s === todayS) cls += " today";
+    if(s === selDate) cls += " sel";
+    var load = dayLoad(list);
+    var pct = Math.min(100, load.pct*100);
+    var fill = load.mins > capMin ? "over" : (load.mins === capMin && capMin > 0 ? "full" : "");
+    var chips = list.slice(0,3).map(function(b){
+      var k = seasonClass(b);
+      var av = b.status === "CAN" ? " avlyst" : "";
+      return '<div class="chip '+k+av+'" title="'+esc(b.kunde+" — "+b.dekk)+'"><b>'+esc(b.tid||"")+'</b> '+esc(b.kunde)+'</div>';
+    }).join("");
+    if(list.length>3) chips += '<div class="chip">+'+(list.length-3)+'</div>';
+    html += '<div class="'+cls+'" data-date="'+s+'" tabindex="0" role="button">'+
+      '<div class="dtop"><span class="dnum">'+d.getDate()+'</span>'+
+      (cnt? '<span class="dcount">'+cnt+'<span class="unit"> '+esc(t("tyresDay"))+'</span></span>':'')+'</div>'+
+      '<div class="chips">'+chips+'</div>'+
+      '<div class="capbar"><i class="'+fill+'" style="width:'+pct+'%"></i></div></div>';
+  }
+  document.getElementById("days").innerHTML = html;
+}
+function seasonClass(b){
+  if(b.saeson === "W") return "vinter";
+  if(b.saeson === "S") return "summar";
+  return "";
+}
+
+function renderDayPanel(){
+  var el = document.getElementById("daypanel");
+  if(!selDate){ el.innerHTML = '<div class="empty">'+esc(t("pickDay"))+'</div>'; return; }
+  var d = parseYmd(selDate);
+  var list = filtered().filter(function(b){ return b.dato === selDate; }).sort(byDate);
+  var tyres=0, sale=0, db=0;
+  list.forEach(function(b){
+    if(b.status === "CAN") return;
+    var c = calc(b); tyres+=c.qty; sale+=c.totIncl; db+=c.db;
+  });
+  var load = dayLoad(list);
+  var head = '<h2>'+esc(t("wdLong")[wdIndex(d)])+' '+d.getDate()+'. '+esc(t("months")[d.getMonth()])+'</h2>'+
+    '<div class="sub"><span>'+tyres+" "+esc(t("tyresDay"))+'</span>'+
+    '<span>'+hmShort(load.mins)+" "+esc(t("of"))+" "+hmShort(load.cap)+'</span>'+
+    (sale? '<span>'+kr0(sale)+' kr.</span>' : "")+'</div>';
+
+  function card(b){
+    var c = calc(b);
+    return '<div class="bk">'+
+      '<div class="bk-top"><span class="bk-time">'+esc(b.tid||"—")+'</span>'+
+        '<span class="bk-name">'+esc(b.kunde)+'</span>'+
+        (b.plade? '<span class="plate">'+esc(b.plade)+'</span>':'')+'</div>'+
+      '<div class="bk-desc">'+esc(b.antal)+' × '+esc(b.dekk||"")+'</div>'+
+      '<div class="bk-money">'+esc(t("totSale"))+' <b>'+kr(c.totIncl)+'</b> &nbsp; '+
+        esc(t("marginTot"))+' <b>'+kr(c.db)+'</b> ('+(c.pct*100).toFixed(1).replace(".",",")+'%)</div>'+
+      '<div class="bk-foot">'+statusTag(b.status)+
+        (b.saeson? '<span class="tag">'+esc(seasonLabel(b.saeson))+'</span>':'')+
+        (b.goymsla? '<span class="tag">'+esc(t("tagStored"))+'</span>':'')+
+        '<button type="button" class="btn btn-sm btn-ghost" data-edit="'+b.id+'" style="margin-left:auto">'+esc(t("edit"))+'</button>'+
+      '</div>'+
+      (b.notat? '<div class="bk-money" style="margin-top:4px">'+esc(b.notat)+'</div>':'')+
+    '</div>';
+  }
+
+  var body = "", placed = {};
+  slotList().forEach(function(m){
+    list.forEach(function(b){
+      if(placed[b.id]) return;
+      var st = toMin(b.tid);
+      if(st != null && st >= m && st < m + state.hours.slot){ placed[b.id] = 1; body += card(b); }
+    });
+    if(busyIn(selDate, m, state.hours.slot, null) < state.hours.bays){
+      body += '<div class="tl-free" data-slot="'+toHHMM(m)+'"><b>'+toHHMM(m)+'</b><span>'+esc(t("free"))+'</span></div>';
+    }
+  });
+  var rest = list.filter(function(b){ return !placed[b.id]; });
+  if(rest.length){
+    body += '<div class="tl-out">'+esc(t("outside"))+'</div>' + rest.map(card).join("");
+  }
+
+  el.innerHTML = head + body +
+    '<div class="panel-actions">'+
+      '<button type="button" class="btn btn-primary btn-sm" id="btnAddHere">'+esc(t("addHere"))+'</button>'+
+      '<button type="button" class="btn btn-sm" id="btnPrint">'+esc(t("print"))+'</button>'+
+    '</div>';
+}
+function statusTag(s){
+  var cls = "";
+  if(s === "DONE" || s === "INV") cls = " done";
+  else if(s === "CAN") cls = " stop";
+  else if(s === "ORD" || s === "CONF") cls = " wait";
+  return '<span class="tag'+cls+'">'+esc(statusLabel(s))+'</span>';
+}
+
+var COLS = [
+  {k:"dato",n:0}, {k:"tid",n:1}, {k:"slut",n:2}, {k:"varighed",n:3,num:true},
+  {k:"kunde",n:4}, {k:"tlf",n:5}, {k:"plade",n:6}, {k:"dekk",n:7},
+  {k:"stodd",n:8}, {k:"merki",n:9}, {k:"antal",n:10,num:true}, {k:"saeson",n:11},
+  {k:"sellEx",n:12,num:true,calc:true}, {k:"salg",n:13,num:true}, {k:"kost",n:14,num:true},
+  {k:"totIncl",n:15,num:true,calc:true}, {k:"totCost",n:16,num:true,calc:true},
+  {k:"db",n:17,num:true,calc:true}, {k:"pct",n:18,num:true,calc:true},
+  {k:"status",n:19}, {k:"goymsla",n:20}, {k:"notat",n:21}
+];
+function cellVal(b,c){
+  if(c.calc){ var x = calc(b); return x[c.k]; }
+  if(c.k === "goymsla") return b.goymsla ? "x" : "";
+  if(c.k === "saeson") return seasonLabel(b.saeson);
+  if(c.k === "status") return statusLabel(b.status);
+  if(c.k === "slut") return endTime(b);
+  if(c.k === "varighed") return durOf(b);
+  return b[c.k];
+}
+function renderTable(){
+  var th = COLS.map(function(c){
+    var mark = sortKey === c.k ? '<span class="sortmark">'+(sortDir>0?"▲":"▼")+'</span>' : "";
+    return '<th class="'+(c.num?"num":"")+'" data-sort="'+c.k+'">'+esc(t("cols")[c.n])+" "+mark+'</th>';
+  }).join("");
+  document.getElementById("thRow").innerHTML = th;
+
+  var rows = filtered().slice().sort(function(a,b){
+    var col = null;
+    COLS.forEach(function(c){ if(c.k===sortKey) col=c; });
+    if(!col) return byDate(a,b);
+    var va = cellVal(a,col), vb = cellVal(b,col);
+    if(col.num) return (Number(va)-Number(vb))*sortDir;
+    va = String(va==null?"":va).toLowerCase(); vb = String(vb==null?"":vb).toLowerCase();
+    if(va===vb) return byDate(a,b);
+    return (va<vb?-1:1)*sortDir;
+  });
+
+  var tb = document.getElementById("tbody");
+  if(!rows.length){
+    tb.innerHTML = '<tr><td colspan="'+COLS.length+'"><div class="empty">'+esc(t("noRows"))+'</div></td></tr>';
+    document.getElementById("tfoot").innerHTML = "";
+    return;
+  }
+  tb.innerHTML = rows.map(function(b){
+    var c = calc(b);
+    return '<tr data-edit="'+b.id+'" style="cursor:pointer">'+
+      '<td>'+esc(b.dato)+'</td><td>'+esc(b.tid||"")+'</td><td>'+esc(endTime(b))+'</td>'+
+      '<td class="num">'+durOf(b)+'</td><td>'+esc(b.kunde)+'</td>'+
+      '<td>'+esc(b.tlf||"")+'</td><td>'+(b.plade?'<span class="plate">'+esc(b.plade)+'</span>':"")+'</td>'+
+      '<td>'+esc(b.dekk||"")+'</td><td>'+esc(b.stodd||"")+'</td><td>'+esc(b.merki||"")+'</td>'+
+      '<td class="num">'+esc(b.antal)+'</td><td>'+esc(seasonLabel(b.saeson))+'</td>'+
+      '<td class="num">'+kr(c.sellEx)+'</td><td class="num">'+kr(c.sellIncl)+'</td>'+
+      '<td class="num">'+kr(c.cost)+'</td><td class="num">'+kr(c.totIncl)+'</td>'+
+      '<td class="num">'+kr(c.totCost)+'</td><td class="num">'+kr(c.db)+'</td>'+
+      '<td class="num">'+(c.pct*100).toFixed(1).replace(".",",")+'</td>'+
+      '<td>'+esc(statusLabel(b.status))+'</td><td>'+(b.goymsla?"x":"")+'</td><td>'+esc(b.notat||"")+'</td></tr>';
+  }).join("");
+
+  var tq=0,ts=0,tc=0,td=0;
+  rows.forEach(function(b){
+    if(b.status === "CAN") return;
+    var c = calc(b); tq+=c.qty; ts+=c.totIncl; tc+=c.totCost; td+=c.db;
+  });
+  document.getElementById("tfoot").innerHTML =
+    '<tr><td colspan="10">'+rows.length+" "+esc(t("sBookings"))+'</td>'+
+    '<td class="num">'+tq+'</td><td colspan="4"></td>'+
+    '<td class="num">'+kr(ts)+'</td><td class="num">'+kr(tc)+'</td><td class="num">'+kr(td)+'</td>'+
+    '<td colspan="4"></td></tr>';
+}
+
+/* ============================================================
+   6. Dialog
+   ============================================================ */
+var dlg = document.getElementById("dlg");
+function openDlg(id, presetDate, presetTime){
+  editId = id || null;
+  var b = id ? state.bookings.filter(function(x){return x.id===id;})[0] : null;
+  document.getElementById("dlgTitle").textContent = b ? t("editTitle") : t("newTitle");
+  document.getElementById("btnDel").classList.toggle("hidden", !b);
+  document.getElementById("dlgErr").classList.add("hidden");
+  document.getElementById("fDato").value    = b ? b.dato : (presetDate || selDate || ymd(new Date()));
+  var dateVal = b ? b.dato : (presetDate || selDate || ymd(new Date()));
+  document.getElementById("fVarighed").value = String(b ? durOf(b) : autoMins(4));
+  document.getElementById("fTid").value     = b ? (b.tid||"") : (presetTime || firstFreeSlot(dateVal));
+  document.getElementById("fSaeson").value  = b ? b.saeson : defaultSeason();
+  document.getElementById("fKunde").value   = b ? b.kunde : "";
+  document.getElementById("fTlf").value     = b ? (b.tlf||"") : "";
+  document.getElementById("fPlade").value   = b ? (b.plade||"") : "";
+  document.getElementById("fDekk").value    = b ? (b.dekk||"") : "";
+  document.getElementById("fStodd").value   = b ? (b.stodd||"") : "";
+  document.getElementById("fMerki").value   = b ? (b.merki||"") : "";
+  document.getElementById("fAntal").value   = b ? b.antal : 4;
+  document.getElementById("fSalg").value    = b && b.salg!=null ? b.salg : "";
+  document.getElementById("fKost").value    = b && b.kost!=null ? b.kost : "";
+  document.getElementById("fStatusIn").value= b ? b.status : "ORD";
+  document.getElementById("fNotat").value   = b ? (b.notat||"") : "";
+  document.getElementById("fGoymsla").checked = b ? !!b.goymsla : false;
+  updateCalcBox();
+  updateDurHint();
+  renderSlotPick();
+  dlg.showModal();
+  document.getElementById("fKunde").focus();
+}
+function autoDuration(){
+  document.getElementById("fVarighed").value = autoMins(document.getElementById("fAntal").value);
+}
+function updateDurHint(){
+  var q = Number(document.getElementById("fAntal").value)||0;
+  var mins = Number(document.getElementById("fVarighed").value)||0;
+  var auto = autoMins(q);
+  document.getElementById("durHint").textContent =
+    q ? q+" × "+(state.hours.minPerTyre||15)+" min"+(mins && mins !== auto ? " ("+hmShort(auto)+")" : "") : "";
+}
+function renderSlotPick(){
+  var date = document.getElementById("fDato").value;
+  var cur  = document.getElementById("fTid").value;
+  var len  = Number(document.getElementById("fVarighed").value) || state.hours.slot;
+  var curM = toMin(cur);
+  document.getElementById("slotPick").innerHTML = slotList().map(function(m){
+    var n = busyIn(date, m, state.hours.slot, editId);
+    var cls = "slot";
+    if(n >= state.hours.bays) cls += " taken";
+    if(curM != null && m >= curM && m < curM + len) cls += " sel";
+    return '<button type="button" class="'+cls+'" data-time="'+toHHMM(m)+'">'+toHHMM(m)+
+           (n ? '<i>'+n+'/'+state.hours.bays+'</i>' : '')+'</button>';
+  }).join("");
+
+  var warn = document.getElementById("slotWarn");
+  var n = curM == null ? 0 : busyIn(date, curM, len, editId);
+  if(n >= state.hours.bays){
+    warn.textContent = t("conflictWarn").replace("{n}", n).replace("{b}", state.hours.bays);
+    warn.classList.remove("hidden");
+  }else{
+    warn.classList.add("hidden");
+  }
+}
+function defaultSeason(){
+  var m = new Date().getMonth();
+  return (m >= 3 && m <= 8) ? "S" : "W";
+}
+function updateCalcBox(){
+  var b = readForm();
+  var c = calc(b);
+  document.getElementById("calcbox").innerHTML =
+    box(t("exVat"), kr(c.sellEx)) + box(t("totSale"), kr(c.totIncl)) +
+    box(t("totCost"), kr(c.totCost)) + box(t("marginTot"), kr(c.db)) +
+    box(t("marginPct"), (c.pct*100).toFixed(1).replace(".",",")+" %");
+  function box(l,v){ return "<div>"+esc(l)+"<b>"+esc(v)+"</b></div>"; }
+}
+function readForm(){
+  return {
+    dato:   document.getElementById("fDato").value,
+    tid:    document.getElementById("fTid").value,
+    varighed: Number(document.getElementById("fVarighed").value) || state.hours.slot,
+    saeson: document.getElementById("fSaeson").value,
+    kunde:  document.getElementById("fKunde").value.trim(),
+    tlf:    document.getElementById("fTlf").value.trim(),
+    plade:  document.getElementById("fPlade").value.trim().toUpperCase(),
+    dekk:   document.getElementById("fDekk").value.trim(),
+    stodd:  document.getElementById("fStodd").value.trim(),
+    merki:  document.getElementById("fMerki").value.trim(),
+    antal:  Number(document.getElementById("fAntal").value)||0,
+    salg:   Number(document.getElementById("fSalg").value)||0,
+    kost:   Number(document.getElementById("fKost").value)||0,
+    status: document.getElementById("fStatusIn").value,
+    notat:  document.getElementById("fNotat").value.trim(),
+    goymsla:document.getElementById("fGoymsla").checked
+  };
+}
+function saveBooking(){
+  var b = readForm();
+  if(!b.kunde) return showErr(t("needCustomer"));
+  if(!b.dato)  return showErr(t("needDate"));
+  normalize(b);
+  if(editId){
+    state.bookings = state.bookings.map(function(x){
+      return x.id===editId ? Object.assign({}, x, b) : x;
+    });
+  }else{
+    b.id = uid();
+    state.bookings.push(b);
+  }
+  selDate = b.dato;
+  viewMonth = parseYmd(b.dato);
+  persist(); dlg.close(); render(); toast(t("saved"));
+}
+function showErr(m){
+  var e = document.getElementById("dlgErr");
+  e.textContent = m; e.classList.remove("hidden");
+}
+function delBooking(){
+  if(!editId) return;
+  if(!confirm(t("confirmDel"))) return;
+  state.bookings = state.bookings.filter(function(x){ return x.id !== editId; });
+  persist(); dlg.close(); render(); toast(t("deleted"));
+}
+
+/* ============================================================
+   7. Útflutningur / export
+   ============================================================ */
+function exportRows(){
+  return filtered().slice().sort(byDate).map(function(b){
+    var c = calc(b), o = {}, names = t("cols");
+    o[names[0]]  = b.dato;
+    o[names[1]]  = b.tid||"";
+    o[names[2]]  = endTime(b);
+    o[names[3]]  = durOf(b);
+    o[names[4]]  = b.kunde||"";
+    o[names[5]]  = b.tlf||"";
+    o[names[6]]  = b.plade||"";
+    o[names[7]]  = b.dekk||"";
+    o[names[8]]  = b.stodd||"";
+    o[names[9]]  = b.merki||"";
+    o[names[10]] = c.qty;
+    o[names[11]] = seasonLabel(b.saeson);
+    o[names[12]] = round2(c.sellEx);
+    o[names[13]] = round2(c.sellIncl);
+    o[names[14]] = round2(c.cost);
+    o[names[15]] = round2(c.totIncl);
+    o[names[16]] = round2(c.totCost);
+    o[names[17]] = round2(c.db);
+    o[names[18]] = Math.round(c.pct*1000)/10;
+    o[names[19]] = statusLabel(b.status);
+    o[names[20]] = b.goymsla ? "x" : "";
+    o[names[21]] = b.notat||"";
+    return o;
+  });
+}
+function round2(n){ return Math.round((Number(n)||0)*100)/100; }
+
+function exportExcel(){
+  var rows = exportRows();
+  var fname = "dekk-keyp-skifti-"+ymd(new Date());
+  if(typeof XLSX !== "undefined"){
+    var ws = XLSX.utils.json_to_sheet(rows, {header: t("cols")});
+    ws["!autofilter"] = {ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:rows.length, c:COLS.length-1}})};
+    ws["!cols"] = [12,7,7,9,22,11,11,34,13,14,7,10,13,13,13,15,14,12,10,14,9,26]
+      .map(function(w){ return {wch:w}; });
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, lang==="fo" ? "Skifti" : "Dækskift");
+    XLSX.writeFile(wb, fname+".xlsx");
+    toast(t("xlsxOk"));
+  }else{
+    downloadCsv(rows, fname+".csv");
+    toast(t("csvOk"));
+  }
+}
+function downloadCsv(rows, fname){
+  var head = t("cols");
+  var lines = [head.join(";")];
+  rows.forEach(function(r){
+    lines.push(head.map(function(h){
+      var v = r[h];
+      if(typeof v === "number") return String(v).replace(".", ",");
+      v = String(v==null?"":v);
+      if(v.indexOf(";")>-1 || v.indexOf("\"")>-1 || v.indexOf("\n")>-1) v = '"'+v.replace(/"/g,'""')+'"';
+      return v;
+    }).join(";"));
+  });
+  dl(new Blob(["\ufeff"+lines.join("\r\n")], {type:"text/csv;charset=utf-8"}), fname);
+}
+function dl(blob, fname){
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = fname;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 400);
+}
+
+/* ============================================================
+   8. Hendingar / events
+   ============================================================ */
+function persist(){ Store.save(state); }
+var toastTimer;
+function toast(msg){
+  var el = document.getElementById("toast");
+  el.textContent = msg; el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 2600);
+}
+
+function fillSelects(){
+  var keep = {
+    fStatus: document.getElementById("fStatus").value,
+    fSeason: document.getElementById("fSeason").value
+  };
+  opts("fStatus", STATUS, t("statuses"), true);
+  opts("fSeason", SEASONS, t("seasons"), true);
+  opts("fStatusIn", STATUS, t("statuses"), false);
+  opts("fSaeson", SEASONS, t("seasons"), false);
+  document.getElementById("fStatus").value = keep.fStatus || "";
+  document.getElementById("fSeason").value = keep.fSeason || "";
+  function opts(id, keys, labels, withAll){
+    var sel = document.getElementById(id);
+    var h = withAll ? '<option value="">'+esc(t("all"))+'</option>' : "";
+    h += keys.map(function(k,i){ return '<option value="'+esc(k)+'">'+esc(labels[i])+'</option>'; }).join("");
+    sel.innerHTML = h;
+  }
+}
+function applyLang(){
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-t]").forEach(function(el){
+    var k = el.getAttribute("data-t");
+    if(T[lang][k]) el.textContent = T[lang][k];
+  });
+  document.querySelectorAll(".seg [data-lang]").forEach(function(b){
+    b.setAttribute("aria-pressed", b.getAttribute("data-lang")===lang ? "true":"false");
+  });
+  fillSelects();
+  renderHoursInfo();
+  render();
+}
+function setView(v){
+  view = v;
+  document.getElementById("viewCal").classList.toggle("hidden", v!=="cal");
+  document.getElementById("viewList").classList.toggle("hidden", v!=="list");
+  document.getElementById("tabCal").setAttribute("aria-pressed", v==="cal"?"true":"false");
+  document.getElementById("tabList").setAttribute("aria-pressed", v==="list"?"true":"false");
+  render();
+}
+
+document.getElementById("btnNew").addEventListener("click", function(){ openDlg(null, selDate); });
+document.getElementById("btnSave").addEventListener("click", saveBooking);
+document.getElementById("btnDel").addEventListener("click", delBooking);
+document.getElementById("btnCancel").addEventListener("click", function(){ dlg.close(); });
+document.getElementById("btnExcel").addEventListener("click", exportExcel);
+document.getElementById("prevM").addEventListener("click", function(){ shiftMonth(-1); });
+document.getElementById("nextM").addEventListener("click", function(){ shiftMonth(1); });
+document.getElementById("btnToday").addEventListener("click", function(){
+  viewMonth = new Date(); selDate = ymd(new Date()); render();
+});
+document.getElementById("tabCal").addEventListener("click", function(){ setView("cal"); });
+document.getElementById("tabList").addEventListener("click", function(){ setView("list"); });
+document.getElementById("btnClear").addEventListener("click", function(){
+  ["q","fFrom","fTo"].forEach(function(id){ document.getElementById(id).value=""; });
+  document.getElementById("fStatus").value=""; document.getElementById("fSeason").value="";
+  render();
+});
+["q","fStatus","fSeason","fFrom","fTo"].forEach(function(id){
+  document.getElementById(id).addEventListener("input", render);
+});
+var dlgSet = document.getElementById("dlgSet");
+document.getElementById("btnSettings").addEventListener("click", function(){
+  document.getElementById("sOpen").value  = state.hours.open;
+  document.getElementById("sClose").value = state.hours.close;
+  document.getElementById("sSlot").value  = String(state.hours.slot);
+  document.getElementById("sBays").value  = state.hours.bays;
+  document.getElementById("sMinTyre").value = state.hours.minPerTyre;
+  setHint();
+  dlgSet.showModal();
+});
+["sOpen","sClose","sSlot","sBays","sMinTyre"].forEach(function(id){
+  document.getElementById(id).addEventListener("input", setHint);
+});
+function setHint(){
+  var a = toMin(document.getElementById("sOpen").value);
+  var z = toMin(document.getElementById("sClose").value);
+  var st = Number(document.getElementById("sSlot").value)||30;
+  var bays = Number(document.getElementById("sBays").value)||1;
+  var mpt = Number(document.getElementById("sMinTyre").value)||15;
+  var n = (a==null||z==null||z<=a) ? 0 : Math.floor((z-a)/st)*bays;
+  document.getElementById("setHint").textContent =
+    t("slotsInfo").replace("{s}", n).replace("{h}", hmShort(Math.max(0,(z-a))*bays)) +
+    " " + t("durExample").replace("{m}", hmShort(4*mpt));
+}
+document.getElementById("setCancel").addEventListener("click", function(){ dlgSet.close(); });
+document.getElementById("setSave").addEventListener("click", function(){
+  var a = toMin(document.getElementById("sOpen").value);
+  var z = toMin(document.getElementById("sClose").value);
+  if(a == null || z == null || z <= a) return;
+  state.hours = {
+    open:  document.getElementById("sOpen").value,
+    close: document.getElementById("sClose").value,
+    slot:  Number(document.getElementById("sSlot").value)||30,
+    bays:  Math.max(1, Number(document.getElementById("sBays").value)||1),
+    minPerTyre: Math.max(1, Number(document.getElementById("sMinTyre").value)||15)
+  };
+  persist(); dlgSet.close(); renderHoursInfo(); render();
+});
+function renderHoursInfo(){
+  var n = slotList().length * state.hours.bays;
+  document.getElementById("hoursInfo").textContent =
+    state.hours.open+"–"+state.hours.close+", "+n+" "+(lang==="fo" ? "tíðarbil" : "tidsrum");
+}
+["fDato","fTid","fVarighed"].forEach(function(id){
+  document.getElementById(id).addEventListener("input", renderSlotPick);
+});
+document.getElementById("slotPick").addEventListener("click", function(e){
+  var b = e.target.closest(".slot"); if(!b) return;
+  document.getElementById("fTid").value = b.getAttribute("data-time");
+  renderSlotPick();
+});
+["fAntal","fSalg","fKost"].forEach(function(id){
+  document.getElementById(id).addEventListener("input", updateCalcBox);
+});
+document.getElementById("fAntal").addEventListener("input", function(){
+  autoDuration(); updateDurHint(); renderSlotPick();
+});
+document.getElementById("fVarighed").addEventListener("input", updateDurHint);
+document.querySelectorAll(".seg [data-lang]").forEach(function(b){
+  b.addEventListener("click", function(){
+    lang = b.getAttribute("data-lang"); state.lang = lang; persist(); applyLang();
+  });
+});
+document.getElementById("days").addEventListener("click", function(e){
+  var cell = e.target.closest(".day"); if(!cell) return;
+  selDate = cell.getAttribute("data-date");
+  var d = parseYmd(selDate);
+  if(d.getMonth() !== viewMonth.getMonth()) viewMonth = d;
+  render();
+});
+document.getElementById("days").addEventListener("keydown", function(e){
+  if(e.key !== "Enter" && e.key !== " ") return;
+  var cell = e.target.closest(".day"); if(!cell) return;
+  e.preventDefault(); selDate = cell.getAttribute("data-date"); render();
+});
+document.getElementById("days").addEventListener("dblclick", function(e){
+  var cell = e.target.closest(".day"); if(!cell) return;
+  openDlg(null, cell.getAttribute("data-date"));
+});
+document.getElementById("daypanel").addEventListener("click", function(e){
+  var ed = e.target.closest("[data-edit]");
+  if(ed){ openDlg(ed.getAttribute("data-edit")); return; }
+  var fr = e.target.closest(".tl-free");
+  if(fr){ openDlg(null, selDate, fr.getAttribute("data-slot")); return; }
+  if(e.target.id === "btnAddHere") openDlg(null, selDate);
+  if(e.target.id === "btnPrint") window.print();
+  if(e.target.id === "btnDemo"){
+    state.bookings = demoData(); persist(); render(); toast(t("demoOk"));
+  }
+});
+document.getElementById("tbody").addEventListener("click", function(e){
+  var tr = e.target.closest("[data-edit]");
+  if(tr) openDlg(tr.getAttribute("data-edit"));
+});
+document.getElementById("thRow").addEventListener("click", function(e){
+  var th = e.target.closest("[data-sort]"); if(!th) return;
+  var k = th.getAttribute("data-sort");
+  if(sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = 1; }
+  renderTable();
+});
+document.getElementById("btnBackup").addEventListener("click", function(){
+  dl(new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),
+     "dekk-keyp-backup-"+ymd(new Date())+".json");
+  toast(t("backupOk"));
+});
+document.getElementById("btnRestore").addEventListener("click", function(){
+  document.getElementById("fileRestore").click();
+});
+document.getElementById("fileRestore").addEventListener("change", function(e){
+  var f = e.target.files[0]; if(!f) return;
+  var r = new FileReader();
+  r.onload = function(){
+    try{
+      var d = JSON.parse(r.result);
+      var list = Array.isArray(d) ? d : d.bookings;
+      if(!Array.isArray(list)) throw new Error("bad");
+      state.bookings = list.map(normalize);
+      if(d.capacity) state.capacity = d.capacity;
+      persist(); render(); toast(t("restoreOk"));
+    }catch(err){ toast(t("restoreErr")); }
+    e.target.value = "";
+  };
+  r.readAsText(f);
+});
+function shiftMonth(n){
+  viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth()+n, 1);
+  render();
+}
+document.addEventListener("keydown", function(e){
+  if(dlg.open){
+    if((e.metaKey||e.ctrlKey) && e.key === "Enter"){ e.preventDefault(); saveBooking(); }
+    return;
+  }
+  if(e.target.matches("input,select,textarea")) return;
+  if(e.key === "n" || e.key === "N"){ e.preventDefault(); openDlg(null, selDate); }
+  if(e.key === "ArrowLeft") shiftMonth(-1);
+  if(e.key === "ArrowRight") shiftMonth(1);
+});
+
+/* ============================================================
+   9. Byrjan / boot
+   ============================================================ */
+function demoData(){
+  var d = new Date(), y = d.getFullYear(), m = d.getMonth();
+  function dd(n){ return ymd(new Date(y,m,n)); }
+  return [
+    {id:uid(),dato:dd(3),tid:"08:30",kunde:"Jógvan Hansen",tlf:"212233",plade:"FA 1234",
+     dekk:"Bridgestone Blizzak LM005 205/55R16 91H",stodd:"205/55R16",merki:"Bridgestone",
+     antal:4,salg:1090,kost:742.50,saeson:"W",status:"CONF",goymsla:false,varighed:60,notat:""},
+    {id:uid(),dato:dd(3),tid:"10:00",kunde:"Sofia Mikkelsen",tlf:"228258",plade:"OB 4471",
+     dekk:"Hankook Winter i*cept RS3 195/65R15 91T",stodd:"195/65R15",merki:"Hankook",
+     antal:4,salg:830,kost:571.20,saeson:"W",status:"ORD",goymsla:true,varighed:60,notat:"Ringer dagen før."},
+    {id:uid(),dato:dd(4),tid:"09:00",kunde:"Elias Næs",tlf:"283400",plade:"UV 908",
+     dekk:"Platin RP-330 225/60R17 99H",stodd:"225/60R17",merki:"Platin",
+     antal:2,salg:1180,kost:812.00,saeson:"S",status:"DONE",goymsla:false,varighed:30,notat:""},
+    {id:uid(),dato:dd(10),tid:"13:30",kunde:"Bryndis Djurhuus",tlf:"284078",plade:"KL 2210",
+     dekk:"Delinte WD6 215/55R17 98V",stodd:"215/55R17",merki:"Delinte",
+     antal:4,salg:990,kost:664.10,saeson:"W",status:"ORD",goymsla:false,varighed:60,notat:""}
+  ];
+}
+function emptyState(){
+  document.getElementById("daypanel").innerHTML =
+    '<div class="empty" style="text-align:left">'+
+    '<div style="font-family:var(--cond);font-size:20px;color:var(--asphalt);font-weight:600">'+esc(t("emptyTitle"))+'</div>'+
+    '<p style="margin:6px 0 12px">'+esc(t("emptyBody"))+'</p>'+
+    '<button type="button" class="btn btn-primary btn-sm" id="btnAddHere">'+esc(t("addHere"))+'</button> '+
+    '<button type="button" class="btn btn-sm" id="btnDemo">'+esc(t("demo"))+'</button></div>';
+}
+
+Store.load().then(function(saved){
+  if(saved && typeof saved === "object"){
+    state.bookings = (Array.isArray(saved.bookings) ? saved.bookings : []).map(normalize);
+    if(saved.hours) state.hours = Object.assign({}, state.hours, saved.hours);
+    if(saved.lang && T[saved.lang]) lang = saved.lang;
+  }
+  state.lang = lang;
+  renderHoursInfo();
+  applyLang();
+  if(!state.bookings.length) emptyState();
+}).catch(function(){
+  renderHoursInfo(); applyLang(); emptyState();
+});
+</script>
+</body>
+</html>
