@@ -68,6 +68,8 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .btn-primary:hover{background:#1a5f99}
 .btn-danger{color:var(--stop);border-color:#e3bfbc;background:#fff}
 .btn-danger:hover{background:#fbf1f0}
+.btn-del{color:var(--stop)}
+.btn-del:hover{background:#fbf1f0}
 .btn-sm{padding:4px 9px;font-size:13px}
 .btn-ghost{background:none;border-color:transparent}
 .btn-ghost:hover{background:#dde1e3}
@@ -260,6 +262,7 @@ dialog::backdrop{background:rgba(24,30,34,.5)}
   .calwrap{display:block}
   .daypanel{border:0;padding:0}
   .bk{page-break-inside:avoid}
+  .bk-foot button{display:none !important}
 }
 </style>
 </head>
@@ -816,6 +819,7 @@ function renderDayPanel(){
         (b.saeson? '<span class="tag">'+esc(seasonLabel(b.saeson))+'</span>':'')+
         (b.goymsla? '<span class="tag">'+esc(t("tagStored"))+'</span>':'')+
         '<button type="button" class="btn btn-sm btn-ghost" data-edit="'+b.id+'" style="margin-left:auto">'+esc(t("edit"))+'</button>'+
+        '<button type="button" class="btn btn-sm btn-ghost btn-del" data-del="'+b.id+'">'+esc(t("delete"))+'</button>'+
       '</div>'+
       (b.notat? '<div class="bk-money" style="margin-top:4px">'+esc(b.notat)+'</div>':'')+
     '</div>';
@@ -1040,11 +1044,26 @@ function showErr(m){
   var e = document.getElementById("dlgErr");
   e.textContent = m; e.classList.remove("hidden");
 }
+function bookingLabel(b){
+  var d = parseYmd(b.dato);
+  var when = d ? d.getDate()+". "+t("months")[d.getMonth()] : b.dato;
+  return (b.kunde||"") + ", " + when + (b.tid ? " kl. "+b.tid : "");
+}
+function removeBooking(id){
+  var b = state.bookings.filter(function(x){ return x.id === id; })[0];
+  if(!b) return;
+  if(!confirm(t("confirmDel")+"\n\n"+bookingLabel(b))) return;
+  state.bookings = state.bookings.filter(function(x){ return x.id !== id; });
+  persist(); render(); toast(t("deleted"));
+  if(!state.bookings.length) emptyState();
+}
 function delBooking(){
   if(!editId) return;
-  if(!confirm(t("confirmDel"))) return;
+  var b = state.bookings.filter(function(x){ return x.id === editId; })[0];
+  if(!confirm(t("confirmDel")+(b ? "\n\n"+bookingLabel(b) : ""))) return;
   state.bookings = state.bookings.filter(function(x){ return x.id !== editId; });
   persist(); dlg.close(); render(); toast(t("deleted"));
+  if(!state.bookings.length) emptyState();
 }
 
 /* ============================================================
@@ -1271,6 +1290,8 @@ document.getElementById("days").addEventListener("dblclick", function(e){
   openDlg(null, cell.getAttribute("data-date"));
 });
 document.getElementById("daypanel").addEventListener("click", function(e){
+  var rm = e.target.closest("[data-del]");
+  if(rm){ removeBooking(rm.getAttribute("data-del")); return; }
   var ed = e.target.closest("[data-edit]");
   if(ed){ openDlg(ed.getAttribute("data-edit")); return; }
   var fr = e.target.closest(".tl-free");
