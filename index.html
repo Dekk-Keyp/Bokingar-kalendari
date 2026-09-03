@@ -49,6 +49,19 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .brand{font-family:var(--cond);font-size:26px;font-weight:700;letter-spacing:.01em;line-height:1}
 .brand span{display:block;font-family:var(--sans);font-size:13px;font-weight:400;opacity:.62;letter-spacing:.02em}
 .topbar .spacer{flex:1}
+.sync{display:flex;align-items:center;gap:6px;font-size:12.5px;color:rgba(255,255,255,.72)}
+.sync i{width:8px;height:8px;border-radius:50%;background:#7d888f;display:block}
+.sync.on i{background:#5fbe8b}
+.sync.off i{background:#e0736a}
+.sync.busy i{background:var(--mark)}
+.gate{position:fixed;inset:0;background:var(--asphalt);z-index:80;display:flex;align-items:center;justify-content:center;padding:20px}
+.gate-box{background:#fff;border-radius:8px;padding:26px 26px 22px;width:min(380px,100%)}
+.gate-box .gb{font-family:var(--cond);font-size:28px;font-weight:700;line-height:1}
+.gate-box h2{font-family:var(--sans);font-size:14px;font-weight:400;color:var(--muted);margin-bottom:16px}
+.gate-box input{width:100%;border:1px solid var(--line);border-radius:5px;padding:9px 11px;margin-bottom:10px}
+.gate-box input:focus{border-color:var(--signal)}
+.gate-box .btn{width:100%}
+.gate-box .err{margin-bottom:10px}
 .seg{display:flex;border:1px solid rgba(255,255,255,.28);border-radius:5px;overflow:hidden}
 .seg button{background:none;border:0;color:rgba(255,255,255,.7);padding:5px 11px;cursor:pointer;font-size:13px;font-weight:500}
 .seg button[aria-pressed="true"]{background:#fff;color:var(--asphalt)}
@@ -271,6 +284,7 @@ dialog::backdrop{background:rgba(24,30,34,.5)}
 <header class="topbar">
   <div class="brand">Dekk-Keyp<span data-t="tagline">Skiftekalender</span></div>
   <div class="spacer"></div>
+  <div class="sync hidden" id="syncBadge"><i></i><span id="syncText"></span></div>
   <div class="seg" role="group" aria-label="Sprog">
     <button type="button" data-lang="da" aria-pressed="true">DA</button>
     <button type="button" data-lang="fo" aria-pressed="false">FØ</button>
@@ -308,6 +322,7 @@ dialog::backdrop{background:rgba(24,30,34,.5)}
   <button type="button" class="btn" id="btnExcel" data-t="excel">Hent Excel</button>
   <button type="button" class="btn btn-ghost btn-sm" id="btnBackup" data-t="backup">Backup</button>
   <button type="button" class="btn btn-ghost btn-sm" id="btnRestore" data-t="restore">Indlæs</button>
+  <button type="button" class="btn btn-ghost btn-sm hidden" id="btnLogout" data-t="logout">Log ud</button>
   <input type="file" id="fileRestore" accept=".json" class="hidden">
 </div>
 
@@ -418,11 +433,29 @@ dialog::backdrop{background:rgba(24,30,34,.5)}
   </div>
 </dialog>
 
+<div class="gate hidden" id="gate">
+  <div class="gate-box">
+    <div class="gb">Dekk-Keyp</div>
+    <h2 data-t="gateTitle">Skiftekalender</h2>
+    <div class="err hidden" id="gateErr"></div>
+    <input id="gateKey" type="password" autocomplete="current-password" placeholder="••••••••">
+    <button type="button" class="btn btn-primary" id="gateGo" data-t="gateGo">Log ind</button>
+  </div>
+</div>
+
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 "use strict";
+
+/* ==================================================================
+   Google Sheet backend.
+   Set weburl-in frá Apps Script inn her. Er hann tómur, koyrir
+   kalendarin bert lokalt á hesi maskinuni.
+   ================================================================== */
+var API_URL = "https://script.google.com/macros/s/AKfycbzpAtUZYI3RaSUhHHOOFzCBTrduKx8_e0Lng4XevNRkg_4XDcqWwMp5eyiGbSKydVKiPw/exec";
+
 
 /* ============================================================
    1. Sprog
@@ -436,6 +469,13 @@ var T = {
     today:"I dag", capacity:"Dæk pr. dag",
     settings:"Indstillinger", openT:"Åbner", closeT:"Lukker", slotLen:"Starttider hver",
     minPerTyre:"Min. pr. dæk", durExample:"4 dæk = {m}.",
+    migrate:"Der ligger {n} bookinger på denne maskine, og arket er tomt.\n\nOK = send dem op i arket.\nAnnuller = slet dem her og brug arket.",
+    migrated:"Bookingerne er sendt til arket.",
+    gateTitle:"Skriv adgangskoden for at se kalenderen.", gateGo:"Log ind",
+    gateBad:"Forkert kode.", gateNet:"Kunne ikke få forbindelse. Prøv igen.",
+    logout:"Log ud", syncOn:"Delt", syncOff:"Ingen forbindelse", syncBusy:"Gemmer",
+    syncFail:"Kunne ikke gemme til arket. Ændringen ligger lokalt og sendes igen automatisk.",
+    syncBack:"Forbindelsen er tilbage. Alt er gemt.",
     bays:"Pladser samtidig", lDur:"Varighed", pickTime:"Vælg tid", free:"Ledig",
     conflictWarn:"Optaget: {n} af {b} pladser er allerede booket på det tidspunkt.",
     slotsInfo:"{s} tidsrum pr. dag, {h} kapacitet.", outside:"Uden for åbningstid",
@@ -475,6 +515,13 @@ var T = {
     today:"Í dag", capacity:"Dekk um dagin",
     settings:"Innstillingar", openT:"Opnar", closeT:"Stongir", slotLen:"Byrjunartíðir hvørt",
     minPerTyre:"Min. pr. dekk", durExample:"4 dekk = {m}.",
+    migrate:"{n} bíleggingar liggja á hesi maskinuni, og arkið er tómt.\n\nOK = send tær upp í arkið.\nAvlýs = strika tær her og brúka arkið.",
+    migrated:"Bíleggingarnar eru sendar í arkið.",
+    gateTitle:"Skriva atgongdskotuna fyri at síggja kalendaran.", gateGo:"Rita inn",
+    gateBad:"Skeiv kota.", gateNet:"Fekk ikki samband. Royn aftur.",
+    logout:"Rita út", syncOn:"Deilt", syncOff:"Einki samband", syncBusy:"Goymi",
+    syncFail:"Kundi ikki goyma í arkið. Broytingin liggur lokalt og verður send aftur sjálvvirkandi.",
+    syncBack:"Sambandið er aftur. Alt er goymt.",
     bays:"Pláss samstundis", lDur:"Longd", pickTime:"Vel tíð", free:"Leyst",
     conflictWarn:"Upptikið: {n} av {b} plássum eru longu bílagd tá.",
     slotsInfo:"{s} tíðarbil um dagin, {h} kapasitetur.", outside:"Uttan fyri opningartíð",
@@ -532,6 +579,160 @@ function normalize(b){
   b.status = normStatus(b.status);
   if(!b.id) b.id = uid();
   return b;
+}
+
+/* ============================================================
+   1b. Samstilling / sync
+   ============================================================ */
+var Api = {
+  key: null,
+  on: false,
+  live: function(){ return !!API_URL; },
+  call: function(payload){
+    payload.key = Api.key || "";
+    return fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    }).then(function(r){ return r.json(); });
+  }
+};
+var pending = { save: {}, del: {} };
+
+function syncBadge(mode){
+  var el = document.getElementById("syncBadge");
+  if(!Api.live()){ el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  el.className = "sync " + mode;
+  document.getElementById("syncText").textContent =
+    mode === "on" ? t("syncOn") : (mode === "busy" ? t("syncBusy") : t("syncOff"));
+}
+function savePending(){
+  try{ localStorage.setItem("dekkkeyp_pending_v1", JSON.stringify(pending)); }catch(e){}
+}
+function loadPending(){
+  try{
+    var raw = localStorage.getItem("dekkkeyp_pending_v1");
+    if(raw){ var p = JSON.parse(raw); pending.save = p.save||{}; pending.del = p.del||{}; }
+  }catch(e){}
+}
+function adoptRows(rows){
+  state.bookings = (rows||[]).map(function(r){
+    return normalize({
+      id:r.id, dato:r.dato, tid:r.tid, varighed:Number(r.varighed)||0,
+      kunde:r.kunde, tlf:r.tlf, plade:r.plade, dekk:r.dekk, stodd:r.stodd, merki:r.merki,
+      antal:Number(r.antal)||0, saeson:r.saeson, salg:Number(r.salg)||0,
+      kost:Number(r.kost)||0, status:r.status, goymsla:!!r.goymsla, notat:r.notat
+    });
+  });
+  persist();
+}
+/* Bíleggingar verða sendar við lesiligum heitum, so arkið er at skilja */
+function forWire(b){
+  return {
+    id:b.id, dato:b.dato, tid:b.tid, varighed:durOf(b),
+    kunde:b.kunde, tlf:b.tlf, plade:b.plade, dekk:b.dekk, stodd:b.stodd, merki:b.merki,
+    antal:b.antal, saeson:seasonLabel(b.saeson), salg:b.salg, kost:b.kost,
+    status:statusLabel(b.status), goymsla:!!b.goymsla, notat:b.notat
+  };
+}
+function flush(extra){
+  if(!Api.live()) return Promise.resolve(false);
+  if(extra && extra.save) pending.save[extra.save.id] = forWire(extra.save);
+  if(extra && extra.del){ pending.del[extra.del] = 1; delete pending.save[extra.del]; }
+  savePending();
+
+  var saves = Object.keys(pending.save).map(function(k){ return pending.save[k]; });
+  var dels  = Object.keys(pending.del);
+  var chain;
+  syncBadge(saves.length || dels.length ? "busy" : "on");
+
+  if(dels.length)      chain = Api.call({action:"delete", ids:dels});
+  else if(saves.length)chain = Api.call({action:"save", bookings:saves});
+  else                 chain = Api.call({action:"list"});
+
+  return chain.then(function(res){
+    if(!res || !res.ok){
+      if(res && res.error === "auth"){ logout(); return false; }
+      throw new Error(res && res.error ? res.error : "fail");
+    }
+    if(dels.length && saves.length){
+      return Api.call({action:"save", bookings:saves}).then(function(r2){
+        if(!r2 || !r2.ok) throw new Error("fail");
+        return r2;
+      });
+    }
+    return res;
+  }).then(function(res){
+    pending.save = {}; pending.del = {}; savePending();
+    adoptRows(res.rows);
+    var wasOff = !Api.on;
+    Api.on = true; syncBadge("on");
+    if(wasOff) toast(t("syncBack"));
+    render();
+    return true;
+  }).catch(function(){
+    Api.on = false; syncBadge("off");
+    return false;
+  });
+}
+function pushAll(){
+  if(!Api.live()) return Promise.resolve(false);
+  state.bookings.forEach(function(b){ pending.save[b.id] = forWire(b); });
+  savePending();
+  return flush(null).then(function(ok){ if(!ok) toast(t("syncFail")); return ok; });
+}
+function pushSave(b){
+  if(!Api.live()) return;
+  flush({save:b}).then(function(ok){ if(!ok) toast(t("syncFail")); });
+}
+function pushDelete(id){
+  if(!Api.live()) return;
+  flush({del:id}).then(function(ok){ if(!ok) toast(t("syncFail")); });
+}
+function refresh(){
+  if(!Api.live() || dlg.open || dlgSet.open) return;
+  if(document.visibilityState !== "visible") return;
+  flush(null);
+}
+function logout(){
+  Api.key = null; Api.on = false;
+  try{ localStorage.removeItem("dekkkeyp_key_v1"); }catch(e){}
+  showGate("");
+}
+function showGate(msg){
+  var g = document.getElementById("gate");
+  var e = document.getElementById("gateErr");
+  if(msg){ e.textContent = msg; e.classList.remove("hidden"); }
+  else e.classList.add("hidden");
+  g.classList.remove("hidden");
+  document.getElementById("gateKey").value = "";
+  setTimeout(function(){ document.getElementById("gateKey").focus(); }, 60);
+}
+function tryKey(k){
+  Api.key = k;
+  document.getElementById("gateGo").disabled = true;
+  return Api.call({action:"list"}).then(function(res){
+    document.getElementById("gateGo").disabled = false;
+    if(!res || !res.ok){ Api.key = null; showGate(t("gateBad")); return false; }
+    try{ localStorage.setItem("dekkkeyp_key_v1", k); }catch(e){}
+    document.getElementById("gate").classList.add("hidden");
+    document.getElementById("btnLogout").classList.remove("hidden");
+    Api.on = true; syncBadge("on");
+    var sheetEmpty = !res.rows || !res.rows.length;
+    if(sheetEmpty && state.bookings.length){
+      if(confirm(t("migrate").replace("{n}", state.bookings.length))){
+        return pushAll().then(function(){ render(); toast(t("migrated")); return true; });
+      }
+    }
+    adoptRows(res.rows);
+    render();
+    if(!state.bookings.length) emptyState();
+    return true;
+  }).catch(function(){
+    document.getElementById("gateGo").disabled = false;
+    Api.key = null; showGate(t("gateNet")); return false;
+  });
 }
 
 /* ============================================================
@@ -1027,18 +1228,24 @@ function saveBooking(){
   var b = readForm();
   if(!b.kunde) return showErr(t("needCustomer"));
   if(!b.dato)  return showErr(t("needDate"));
+  if(editId) b.id = editId;   /* annars gevur normalize eina nýggja id og ger eina dublett */
   normalize(b);
+  var saved;
   if(editId){
     state.bookings = state.bookings.map(function(x){
-      return x.id===editId ? Object.assign({}, x, b) : x;
+      if(x.id !== editId) return x;
+      saved = Object.assign({}, x, b);
+      return saved;
     });
   }else{
     b.id = uid();
     state.bookings.push(b);
+    saved = b;
   }
   selDate = b.dato;
   viewMonth = parseYmd(b.dato);
   persist(); dlg.close(); render(); toast(t("saved"));
+  if(saved) pushSave(saved);
 }
 function showErr(m){
   var e = document.getElementById("dlgErr");
@@ -1055,14 +1262,17 @@ function removeBooking(id){
   if(!confirm(t("confirmDel")+"\n\n"+bookingLabel(b))) return;
   state.bookings = state.bookings.filter(function(x){ return x.id !== id; });
   persist(); render(); toast(t("deleted"));
+  pushDelete(id);
   if(!state.bookings.length) emptyState();
 }
 function delBooking(){
   if(!editId) return;
   var b = state.bookings.filter(function(x){ return x.id === editId; })[0];
   if(!confirm(t("confirmDel")+(b ? "\n\n"+bookingLabel(b) : ""))) return;
+  var gone = editId;
   state.bookings = state.bookings.filter(function(x){ return x.id !== editId; });
   persist(); dlg.close(); render(); toast(t("deleted"));
+  pushDelete(gone);
   if(!state.bookings.length) emptyState();
 }
 
@@ -1179,6 +1389,7 @@ function applyLang(){
   });
   fillSelects();
   renderHoursInfo();
+  if(Api.live()) syncBadge(Api.on ? "on" : "off");
   render();
 }
 function setView(v){
@@ -1312,6 +1523,14 @@ document.getElementById("thRow").addEventListener("click", function(e){
   if(sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = 1; }
   renderTable();
 });
+document.getElementById("gateGo").addEventListener("click", function(){
+  var k = document.getElementById("gateKey").value.trim();
+  if(k) tryKey(k);
+});
+document.getElementById("gateKey").addEventListener("keydown", function(e){
+  if(e.key === "Enter"){ e.preventDefault(); document.getElementById("gateGo").click(); }
+});
+document.getElementById("btnLogout").addEventListener("click", function(){ logout(); });
 document.getElementById("btnBackup").addEventListener("click", function(){
   dl(new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),
      "dekk-keyp-backup-"+ymd(new Date())+".json");
@@ -1331,6 +1550,7 @@ document.getElementById("fileRestore").addEventListener("change", function(e){
       state.bookings = list.map(normalize);
       if(d.capacity) state.capacity = d.capacity;
       persist(); render(); toast(t("restoreOk"));
+      pushAll();
     }catch(err){ toast(t("restoreErr")); }
     e.target.value = "";
   };
@@ -1378,7 +1598,7 @@ function emptyState(){
     '<div style="font-family:var(--cond);font-size:20px;color:var(--asphalt);font-weight:600">'+esc(t("emptyTitle"))+'</div>'+
     '<p style="margin:6px 0 12px">'+esc(t("emptyBody"))+'</p>'+
     '<button type="button" class="btn btn-primary btn-sm" id="btnAddHere">'+esc(t("addHere"))+'</button> '+
-    '<button type="button" class="btn btn-sm" id="btnDemo">'+esc(t("demo"))+'</button></div>';
+    (Api.live() ? "" : '<button type="button" class="btn btn-sm" id="btnDemo">'+esc(t("demo"))+'</button>')+'</div>';
 }
 
 Store.load().then(function(saved){
@@ -1390,10 +1610,26 @@ Store.load().then(function(saved){
   state.lang = lang;
   renderHoursInfo();
   applyLang();
-  if(!state.bookings.length) emptyState();
+  startup();
 }).catch(function(){
-  renderHoursInfo(); applyLang(); emptyState();
+  renderHoursInfo(); applyLang(); startup();
 });
+
+function startup(){
+  if(!Api.live()){
+    if(!state.bookings.length) emptyState();
+    return;
+  }
+  loadPending();
+  syncBadge("off");
+  var k = null;
+  try{ k = localStorage.getItem("dekkkeyp_key_v1"); }catch(e){}
+  if(k) tryKey(k); else showGate("");
+  setInterval(refresh, 30000);
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState === "visible") refresh();
+  });
+}
 </script>
 </body>
 </html>
